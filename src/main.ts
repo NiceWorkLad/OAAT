@@ -1,5 +1,6 @@
 import './styles.css';
 import { loadDifficulty } from './engine/difficulty';
+import { loadCalibration, setupCalibration } from './ui/calibrate';
 import type { Doc } from './ui/doc';
 import { setupInputScreen } from './ui/input-screen';
 import { setupReader } from './ui/reader';
@@ -8,7 +9,7 @@ import { load, MAX_SAVED_TEXT, remove, save } from './ui/storage';
 
 type SavedText = { text: string; isMarkdown: boolean; name: string | null };
 type SavedPosition = { hash: string; tokenIndex: number };
-type Screen = 'input' | 'reader';
+type Screen = 'input' | 'reader' | 'calibrate';
 
 const settings = loadSettings();
 applyAppearance(settings);
@@ -16,6 +17,8 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => appl
 
 const inputScreen = document.getElementById('input-screen')!;
 const readerScreen = document.getElementById('reader-screen')!;
+const calibrateScreen = document.getElementById('calibrate-screen')!;
+let returnTo: Screen = 'input';
 
 let currentDoc: Doc | null = null;
 
@@ -33,7 +36,9 @@ function savePosition(tokenIndex: number) {
 function showScreen(which: Screen) {
   inputScreen.hidden = which !== 'input';
   readerScreen.hidden = which !== 'reader';
-  save('screen', which);
+  calibrateScreen.hidden = which !== 'calibrate';
+  // A reload mid-test goes back to the text rather than restarting the test.
+  save('screen', which === 'calibrate' ? returnTo : which);
 }
 
 const reader = setupReader({
@@ -68,6 +73,40 @@ function openReader(doc: Doc) {
   showScreen('reader');
   reader.open(doc, resumeAt);
 }
+
+const calibration = setupCalibration({
+  settings,
+  onApply: (wpm) => {
+    settings.wpm = wpm;
+    persistSettings();
+    reader.syncSliders();
+    reader.reschedule();
+  },
+  onExit: () => {
+    showScreen(returnTo);
+    showLastCalibration();
+    input.refreshStats();
+    if (returnTo === 'input') input.focus();
+  },
+});
+
+function openCalibration() {
+  returnTo = readerScreen.hidden ? 'input' : 'reader';
+  if (returnTo === 'reader') reader.close();
+  if (drawer.isOpen()) drawer.close();
+  showScreen('calibrate');
+  calibration.open();
+}
+document.getElementById('calibrate-btn')!.addEventListener('click', openCalibration);
+document.getElementById('drawer-calibrate-btn')!.addEventListener('click', openCalibration);
+
+function showLastCalibration() {
+  const last = loadCalibration();
+  document.getElementById('cal-last')!.textContent = last
+    ? ` Your speed test result: ${last.wpm} WPM (${last.level} texts).`
+    : '';
+}
+showLastCalibration();
 
 // Esc closes the settings drawer wherever focus is.
 document.addEventListener('keydown', (e) => {

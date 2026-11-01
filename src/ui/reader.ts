@@ -1,8 +1,8 @@
-import { splitAtOrp } from '../engine/orp';
 import { Player, type PlayerState } from '../engine/player';
-import { computeSchedule, type Frame } from '../engine/timing';
+import { computeSchedule } from '../engine/timing';
 import type { Token } from '../engine/tokenize';
 import { formatDuration, type Doc } from './doc';
+import { createWordView } from './word-view';
 import { WPM_MAX, WPM_MIN, WPM_STEP, type Settings } from './settings';
 
 const HIDE_CONTROLS_AFTER = 2000;
@@ -22,10 +22,6 @@ export function setupReader(opts: Options) {
   const screen = $('reader-screen');
   const stage = $('stage');
   const wordEl = $('word');
-  const wordRow = wordEl.parentElement!;
-  const beforeEl = wordEl.querySelector<HTMLElement>('.before')!;
-  const pivotEl = wordEl.querySelector<HTMLElement>('.pivot')!;
-  const afterEl = wordEl.querySelector<HTMLElement>('.after')!;
   const contextEl = $('context');
   const finishedEl = $('finished');
   const playBtn = $<HTMLButtonElement>('play-btn');
@@ -46,31 +42,7 @@ export function setupReader(opts: Options) {
 
   // --- Rendering ----------------------------------------------------------
 
-  const renderFrame = (frame: Frame) => {
-    const [before, pivot, after] = splitAtOrp(frame.text);
-    beforeEl.textContent = before;
-    pivotEl.textContent = pivot;
-    afterEl.textContent = after;
-    wordEl.style.setProperty('--before', String(Array.from(before).length));
-    fitWord();
-    wordEl.dataset.bucket = String(frame.bucket);
-  };
-
-  /** Shrink tokens that would overflow (long URLs etc.); the pivot stays put. */
-  const fitWord = () => {
-    wordEl.style.setProperty('--fit', '1');
-    const row = wordRow.getBoundingClientRect();
-    const word = wordEl.getBoundingClientRect();
-    const margin = 12;
-    const pivotX = row.left + row.width * 0.38;
-    let fit = 1;
-    if (word.right > row.right - margin) fit = Math.min(fit, (row.right - margin - pivotX) / (word.right - pivotX));
-    if (word.left < row.left + margin) fit = Math.min(fit, (pivotX - row.left - margin) / (pivotX - word.left));
-    if (fit < 1) wordEl.style.setProperty('--fit', Math.max(0.2, fit).toFixed(3));
-  };
-  addEventListener('resize', () => {
-    if (!screen.hidden) fitWord();
-  });
+  const wordView = createWordView(wordEl.parentElement!);
 
   const sentenceRange = (tokens: Token[], s: number): [number, number] | null => {
     // Tokens are ordered by sentenceIndex; find [start, end) for sentence s.
@@ -123,7 +95,7 @@ export function setupReader(opts: Options) {
   // --- Player wiring ------------------------------------------------------
 
   player.on('frame', ({ frame }) => {
-    renderFrame(frame);
+    wordView.render(frame);
     if (!contextEl.hidden) renderContext();
   });
 

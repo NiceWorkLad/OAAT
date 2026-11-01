@@ -23,6 +23,26 @@ Your settings, your last text (if it's under 1 MB) and your position are kept in
 
 The settings drawer (gear icon) holds the theme (system / light / dark), the word size, and **Show difficulty colour**, which tints each word from green (easy) to red (hard).
 
+## Speed test ("Find my speed")
+
+A 5-minute test finds the fastest speed at which you still understand what you read. You can start it from the text screen or from the settings drawer.
+
+1. **Choose a level.** The reader picks the plain-English description that best matches their reading, or "Not sure", which starts at B1. The levels follow the CEFR (Common European Framework of Reference for Languages): A2 elementary, B1 intermediate, B2 upper intermediate and C1 advanced.
+2. **Normal reading.** The first text is read in the usual way and timed, then followed by 3 questions. This measures normal reading speed. If 2 or more questions are wrong, the rest of the test uses texts one level easier.
+3. **Five RSVP rounds.** Each round plays a text one word at a time and then asks 3 questions. The test uses a staircase: 3/3 correct speeds up by 50 WPM, 2/3 keeps the same speed, and 0–1 slows down by 50 WPM. The first round starts at the normal reading speed, between 150 and 600 WPM.
+4. **Result.** The recommendation is the fastest speed the reader passed (2 or more of 3 correct) that is still slower than every speed they failed at. They can apply it with one click.
+
+There are 24 passages, 6 per level, each with 3 multiple-choice questions. All of them were written for this project and live in `src/calibration/passages.ts`. They follow the CEFR reading descriptors for each level: everyday topics and short sentences at A2, up to nuanced argument and questions about implication and the writer's attitude at C1. Every question can be answered from the text alone. `tests/passages.test.ts` checks that the passages get harder from level to level, measured with OAAT's own wordlist:
+
+| Level | Rare words (bucket 5+) | Words per sentence |
+| --- | --- | --- |
+| A2 | 5.7% | 9.5 |
+| B1 | 7.6% | 13.8 |
+| B2 | 11.0% | 19.0 |
+| C1 | 19.4% | 22.5 |
+
+The design follows findings from reading research. Comprehension falls as speed rises, and there is no shortcut around that trade-off (Rayner et al., 2016, *Psychological Science in the Public Interest*). That's why the test measures understanding as well as speed. Typical silent reading speed is about 240–260 WPM (Brysbaert, 2019), and RSVP takes away the ability to glance back at earlier words (Schotter, Tran & Rayner, 2014). So the result is best treated as an upper limit for easy reading, not a target.
+
 ## How the timing works
 
 ```

@@ -37,6 +37,7 @@
             <input type="file" id="file-input" accept=".txt,.md,.markdown,text/plain,text/markdown" hidden />
             <button type="button" id="paste-btn" class="btn">Paste from clipboard</button>
             <button type="button" id="clear-btn" class="btn btn-quiet">Clear</button>
+            <button type="button" id="calibrate-btn" class="btn btn-quiet">Find my speed</button>
           </div>
           <div class="input-go">
             <p id="input-stats" class="stats" aria-live="polite"></p>
@@ -44,7 +45,7 @@
           </div>
         </div>
         <p id="input-message" class="message" role="status" aria-live="polite"></p>
-        <p class="hint">Drop a <code>.txt</code> or <code>.md</code> file anywhere on the page.</p>
+        <p class="hint">Drop a <code>.txt</code> or <code>.md</code> file anywhere on the page.<span id="cal-last"></span></p>
       </main>
     </section>
 
@@ -100,6 +101,28 @@
       </div>
     </section>
 
+    <!-- Speed test -->
+    <section id="calibrate-screen" class="screen calibrate-screen" aria-label="Speed test" hidden>
+      <header class="topbar">
+        <button type="button" id="cal-exit" class="btn btn-quiet" aria-label="Leave the speed test (Esc)">
+          <svg aria-hidden="true"><use href="#i-back" /></svg> Leave test
+        </button>
+        <span id="cal-step" class="doc-title" aria-live="polite"></span>
+        <span class="topbar-spacer"></span>
+      </header>
+      <div id="cal-body" class="cal-body"></div>
+      <div id="cal-rsvp" class="cal-rsvp" hidden>
+        <div class="word-row">
+          <div class="reticle" aria-hidden="true"></div>
+          <div class="word" aria-hidden="true"><span class="before"></span><span class="pivot"></span><span class="after"></span></div>
+        </div>
+        <p id="cal-rsvp-status" class="cal-rsvp-status" role="status"></p>
+      </div>
+      <div class="progress-row">
+        <div class="progress progress-static" aria-hidden="true"><div id="cal-progress-fill" class="progress-fill"></div></div>
+      </div>
+    </section>
+
     <!-- Settings -->
     <div id="settings-backdrop" class="backdrop" hidden></div>
     <aside id="settings" class="drawer" role="dialog" aria-modal="false" aria-labelledby="settings-title" hidden>
@@ -123,6 +146,9 @@
         <input type="checkbox" id="show-difficulty" />
         <span>Show difficulty colour<small>Tints each word by how hard it is (green easy → red hard).</small></span>
       </label>
+      <div class="field">
+        <button type="button" id="drawer-calibrate-btn" class="btn">Find my speed (5-minute test)</button>
+      </div>
       <div class="field keys">
         <h3>Keyboard</h3>
         <dl>

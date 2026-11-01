@@ -688,3 +688,160 @@ fieldset.field legend {
     animation: none;
   }
 }
+
+/* ---------- Speed test -------------------------------------------------- */
+:root {
+  --good: #1d7a3a; /* 5.2:1 on --bg */
+}
+:root[data-theme='dark'] {
+  --good: #6fd38f;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --good: #6fd38f;
+  }
+}
+.topbar-spacer {
+  width: 2.75rem;
+}
+.cal-body {
+  flex: 1;
+  width: 100%;
+  max-width: 40rem;
+  min-height: 0;
+  margin: 0 auto;
+  padding: 0.5rem 1.25rem 2rem;
+  overflow-y: auto;
+}
+.cal-body h2 {
+  margin: 0.5rem 0 1rem;
+  font-size: 1.5rem;
+  line-height: 1.3;
+}
+.cal-body h2:focus {
+  outline: none;
+}
+.cal-body p {
+  margin: 0 0 1rem;
+}
+.cal-body > .btn,
+.cal-form > .btn {
+  margin-top: 0.5rem;
+}
+.cal-note {
+  padding: 0.75rem 1rem;
+  border-left: 3px solid var(--accent);
+  background: var(--surface-2);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.cal-passage {
+  font-size: 1.15rem;
+  line-height: 1.75;
+  white-space: pre-line;
+}
+.cal-form fieldset {
+  margin: 0 0 1.25rem;
+  padding: 0;
+  border: 0;
+}
+.cal-form legend {
+  margin-bottom: 0.6rem;
+  padding: 0;
+  font-weight: 600;
+}
+.cal-choice,
+.cal-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  margin-bottom: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+.cal-choice:hover,
+.cal-option:hover {
+  border-color: var(--muted);
+}
+.cal-choice:has(input:checked),
+.cal-option:has(input:checked) {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.cal-choice input,
+.cal-option input {
+  margin-top: 0.3rem;
+  accent-color: var(--accent);
+}
+.cal-choice small {
+  display: block;
+  color: var(--muted);
+}
+.cal-option:has(input:disabled) {
+  cursor: default;
+}
+.cal-option.is-correct,
+.cal-option.is-correct:has(input:checked) {
+  border-color: var(--good);
+  box-shadow: inset 0 0 0 1px var(--good);
+}
+.cal-option.is-correct em {
+  color: var(--good);
+  font-style: normal;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cal-option.is-wrong,
+.cal-option.is-wrong:has(input:checked) {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  text-decoration: line-through;
+  text-decoration-color: var(--accent);
+}
+.cal-score {
+  font-weight: 600;
+}
+.cal-rsvp {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.cal-rsvp-status {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  text-align: center;
+}
+.progress-static {
+  cursor: default;
+}
+.cal-big {
+  font-size: 1.25rem;
+}
+.cal-big strong {
+  font: 700 3rem var(--mono);
+  color: var(--accent);
+}
+.cal-table {
+  width: 100%;
+  margin: 0 0 1.25rem;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+.cal-table th,
+.cal-table td {
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.cal-table th {
+  color: var(--muted);
+  font-weight: 500;
+}
+.cal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
