@@ -1,13 +1,18 @@
 import { computeSchedule, remainingMs } from '../engine/timing';
 import { FileError, readTextFile, setupDropZone } from '../input/file';
 import { looksLikeMarkdown } from '../input/markdown';
+import { fetchArticle, isLoneWikiUrl, parseWikiInput, WikiError } from '../input/wikipedia';
 import { formatReadingTime, makeDoc, type Doc } from './doc';
 import type { Settings } from './settings';
+
+const WIKI_TIMEOUT_MS = 15000;
+
+type Source = { name: string | null; isMarkdown: boolean; source?: string | null };
 
 type Options = {
   settings: Settings;
   onStart: (doc: Doc) => void;
-  onTextChange: (text: string, isMarkdown: boolean, name: string | null) => void;
+  onTextChange: (text: string, isMarkdown: boolean, name: string | null, source: string | null) => void;
   isActive: () => boolean;
 };
 
@@ -21,9 +26,13 @@ export function setupInputScreen(opts: Options) {
   const stats = document.getElementById('input-stats')!;
   const message = document.getElementById('input-message')!;
   const overlay = document.getElementById('drop-overlay')!;
+  const wikiForm = document.getElementById('wiki-form') as HTMLFormElement;
+  const wikiInput = document.getElementById('wiki-input') as HTMLInputElement;
+  const wikiBtn = document.getElementById('wiki-btn') as HTMLButtonElement;
 
   // Markdown-ness: files decide by extension; pasted text is sniffed.
-  let fileState: { name: string | null; isMarkdown: boolean; text: string } | null = null;
+  let fileState: { name: string | null; isMarkdown: boolean; source: string | null; text: string } | null = null;
+  let wikiAbort: AbortController | null = null;
   let statsTimer = 0;
 
   const current = () => {
@@ -33,12 +42,23 @@ export function setupInputScreen(opts: Options) {
       text,
       isMarkdown: fromFile ? fromFile.isMarkdown : looksLikeMarkdown(text),
       name: fromFile?.name ?? null,
+      source: fromFile?.source ?? null,
     };
   };
 
-  const say = (msg: string, kind: 'info' | 'error' = 'info') => {
-    message.textContent = msg;
+  const say = (msg: string | Node[], kind: 'info' | 'error' = 'info') => {
+    if (typeof msg === 'string') message.textContent = msg;
+    else message.replaceChildren(...msg);
     message.dataset.kind = kind;
+  };
+
+  const link = (href: string, text: string) => {
+    const a = document.createElement('a');
+    a.href = href;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.textContent = text;
+    return a;
   };
 
   const updateStats = () => {
@@ -62,12 +82,12 @@ export function setupInputScreen(opts: Options) {
 
   const changed = () => {
     const c = current();
-    opts.onTextChange(c.text, c.isMarkdown, c.name);
+    opts.onTextChange(c.text, c.isMarkdown, c.name, c.source);
     scheduleStats();
   };
 
-  const setText = (text: string, file: { name: string | null; isMarkdown: boolean } | null) => {
-    fileState = file ? { ...file, text } : null;
+  const setText = (text: string, file: Source | null) => {
+    fileState = file ? { name: file.name, isMarkdown: file.isMarkdown, source: file.source ?? null, text } : null;
     textarea.value = text;
     changed();
   };
@@ -83,8 +103,69 @@ export function setupInputScreen(opts: Options) {
     }
   };
 
+  // --- Wikipedia --------------------------------------------------------
+
+  const loadWikipedia = async (input: string) => {
+    const parsed = parseWikiInput(input);
+    if (!parsed.ok) {
+      say(
+        parsed.reason === 'not-english'
+          ? 'Only English Wikipedia (en.wikipedia.org) is supported for now.'
+          : parsed.reason === 'not-wikipedia'
+            ? 'That doesn’t look like a Wikipedia link. Paste a link, or just the article title.'
+            : 'Type a Wikipedia article title or paste its link.',
+        'error',
+      );
+      wikiInput.focus();
+      return;
+    }
+    wikiAbort?.abort();
+    const ctrl = (wikiAbort = new AbortController());
+    const timer = window.setTimeout(() => ctrl.abort(), WIKI_TIMEOUT_MS);
+    wikiBtn.disabled = true;
+    wikiForm.setAttribute('aria-busy', 'true');
+    say(`Loading “${parsed.title}” from Wikipedia…`);
+    try {
+      const article = await fetchArticle(parsed.title, { signal: ctrl.signal });
+      if (ctrl !== wikiAbort) return; // superseded
+      setText(article.text, { name: `${article.title} — Wikipedia`, isMarkdown: true, source: article.url });
+      wikiInput.value = '';
+      say([
+        document.createTextNode('Loaded '),
+        link(article.url, `“${article.title}”`),
+        document.createTextNode(' from Wikipedia (CC BY-SA 4.0).'),
+      ]);
+      textarea.scrollTop = 0;
+      startBtn.focus();
+    } catch (err) {
+      if (ctrl !== wikiAbort) return;
+      say(err instanceof WikiError ? err.message : 'Sorry, that article couldn’t be loaded.', 'error');
+      wikiInput.focus();
+    } finally {
+      clearTimeout(timer);
+      if (ctrl === wikiAbort) {
+        wikiAbort = null;
+        wikiBtn.disabled = false;
+        wikiForm.removeAttribute('aria-busy');
+      }
+    }
+  };
+
+  wikiForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    void loadWikipedia(wikiInput.value);
+  });
+
   textarea.addEventListener('input', () => {
     say('');
+    // A lone Wikipedia link pasted into the main box: fetch the article instead
+    // of reading the URL out.
+    if (isLoneWikiUrl(textarea.value)) {
+      const url = textarea.value.trim();
+      setText('', null);
+      void loadWikipedia(url);
+      return;
+    }
     changed();
   });
   textarea.addEventListener('keydown', (e) => {
@@ -105,6 +186,10 @@ export function setupInputScreen(opts: Options) {
     try {
       const text = await navigator.clipboard.readText();
       if (!text) throw new Error('empty');
+      if (isLoneWikiUrl(text)) {
+        void loadWikipedia(text);
+        return;
+      }
       setText(text, null);
       say('Pasted from clipboard.');
     } catch {
@@ -134,14 +219,15 @@ export function setupInputScreen(opts: Options) {
   const start = () => {
     const c = current();
     if (!c.text.trim()) return;
-    const doc = makeDoc(c.text, c.isMarkdown, c.name);
+    const doc = makeDoc(c.text, c.isMarkdown, c.name, c.source);
     if (doc.tokens.length === 0) return;
     opts.onStart(doc);
   };
   startBtn.addEventListener('click', start);
 
   return {
-    setText: (text: string, isMarkdown: boolean, name: string | null) => setText(text, { name, isMarkdown }),
+    setText: (text: string, isMarkdown: boolean, name: string | null, source: string | null = null) =>
+      setText(text, { name, isMarkdown, source }),
     refreshStats: updateStats,
     focus: () => textarea.focus(),
     start,

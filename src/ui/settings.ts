@@ -1,6 +1,8 @@
 import { MAX_SENSITIVITY } from '../engine/timing';
 import { load, save } from './storage';
 
+const supportsWakeLock = () => typeof navigator !== 'undefined' && 'wakeLock' in navigator;
+
 export type Theme = 'system' | 'light' | 'dark';
 
 export type Settings = {
@@ -9,38 +11,50 @@ export type Settings = {
   theme: Theme;
   fontSize: number; // rem
   showDifficulty: boolean;
+  keepAwake: boolean;
 };
 
 export const DEFAULTS: Settings = {
   wpm: 300,
   sensitivity: 0.6,
   theme: 'system',
-  fontSize: 3.5,
+  fontSize: 5,
   showDifficulty: false,
+  keepAwake: true,
 };
 
 export const WPM_MIN = 100;
 export const WPM_MAX = 1000;
 export const WPM_STEP = 25;
-export const FONT_MIN = 2;
-export const FONT_MAX = 6;
+export const FONT_MIN = 2.5;
+export const FONT_MAX = 12;
+export const FONT_STEP = 0.5;
+/** Bumped when stored settings need migrating. */
+const SETTINGS_VERSION = 2;
 
 const clamp = (v: unknown, lo: number, hi: number, d: number) =>
   typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d;
 
 export function loadSettings(): Settings {
-  const s = load<Partial<Settings>>('settings') ?? {};
+  const s = load<Partial<Settings> & { v?: number }>('settings') ?? {};
+  // v1 stored the old 3.5rem default for everyone; move those to the new, larger default.
+  if ((s.v ?? 1) < 2 && s.fontSize === 3.5) s.fontSize = DEFAULTS.fontSize;
   return {
     wpm: Math.round(clamp(s.wpm, WPM_MIN, WPM_MAX, DEFAULTS.wpm) / WPM_STEP) * WPM_STEP,
     sensitivity: clamp(s.sensitivity, 0, MAX_SENSITIVITY, DEFAULTS.sensitivity),
     theme: s.theme === 'light' || s.theme === 'dark' ? s.theme : 'system',
     fontSize: clamp(s.fontSize, FONT_MIN, FONT_MAX, DEFAULTS.fontSize),
     showDifficulty: typeof s.showDifficulty === 'boolean' ? s.showDifficulty : DEFAULTS.showDifficulty,
+    keepAwake: typeof s.keepAwake === 'boolean' ? s.keepAwake : DEFAULTS.keepAwake,
   };
 }
 
 export function saveSettings(s: Settings): void {
-  save('settings', s);
+  save('settings', { ...s, v: SETTINGS_VERSION });
+}
+
+export function nudgeFontSize(s: Settings, steps: number): void {
+  s.fontSize = Math.min(FONT_MAX, Math.max(FONT_MIN, Math.round((s.fontSize + steps * FONT_STEP) * 2) / 2));
 }
 
 export function applyAppearance(s: Settings): void {
@@ -63,13 +77,20 @@ export function setupSettingsDrawer(settings: Settings, onChange: () => void) {
   const fontInput = document.getElementById('font-size') as HTMLInputElement;
   const fontOut = document.getElementById('font-size-value')!;
   const diffInput = document.getElementById('show-difficulty') as HTMLInputElement;
+  const awakeInput = document.getElementById('keep-awake') as HTMLInputElement;
+  const awakeNote = document.getElementById('keep-awake-note')!;
   const themeInputs = Array.from(drawer.querySelectorAll<HTMLInputElement>('input[name="theme"]'));
   let opener: HTMLElement | null = null;
 
   const sync = () => {
+    fontInput.min = String(FONT_MIN);
+    fontInput.max = String(FONT_MAX);
+    fontInput.step = String(FONT_STEP);
     fontInput.value = String(settings.fontSize);
-    fontOut.textContent = `${settings.fontSize.toFixed(2).replace(/\.?0+$/, '')} rem`;
+    const pct = Math.round((settings.fontSize / DEFAULTS.fontSize) * 100);
+    fontOut.textContent = pct === 100 ? 'Default' : `${pct}%`;
     diffInput.checked = settings.showDifficulty;
+    awakeInput.checked = settings.keepAwake;
     for (const r of themeInputs) r.checked = r.value === settings.theme;
   };
   sync();
@@ -77,6 +98,13 @@ export function setupSettingsDrawer(settings: Settings, onChange: () => void) {
   fontInput.addEventListener('input', () => {
     settings.fontSize = Number(fontInput.value);
     sync();
+    onChange();
+  });
+  awakeNote.textContent = supportsWakeLock()
+    ? 'Stops the screen dimming or locking while words are playing.'
+    : 'Not supported in this browser — your screen may still dim.';
+  awakeInput.addEventListener('change', () => {
+    settings.keepAwake = awakeInput.checked;
     onChange();
   });
   diffInput.addEventListener('change', () => {

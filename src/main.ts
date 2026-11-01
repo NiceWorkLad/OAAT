@@ -6,13 +6,15 @@ import { setupInputScreen } from './ui/input-screen';
 import { setupReader } from './ui/reader';
 import { applyAppearance, loadSettings, saveSettings, setupSettingsDrawer } from './ui/settings';
 import { load, MAX_SAVED_TEXT, remove, save } from './ui/storage';
+import { wakeLock } from './system/wakelock';
 
-type SavedText = { text: string; isMarkdown: boolean; name: string | null };
+type SavedText = { text: string; isMarkdown: boolean; name: string | null; source?: string | null };
 type SavedPosition = { hash: string; tokenIndex: number };
 type Screen = 'input' | 'reader' | 'calibrate';
 
 const settings = loadSettings();
 applyAppearance(settings);
+wakeLock.setEnabled(settings.keepAwake);
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyAppearance(settings));
 
 const inputScreen = document.getElementById('input-screen')!;
@@ -26,6 +28,7 @@ const persistSettings = () => saveSettings(settings);
 
 const drawer = setupSettingsDrawer(settings, () => {
   applyAppearance(settings);
+  wakeLock.setEnabled(settings.keepAwake);
   persistSettings();
 });
 
@@ -47,6 +50,11 @@ const reader = setupReader({
     persistSettings();
     input.refreshStats();
   },
+  onAppearanceChange: () => {
+    applyAppearance(settings);
+    drawer.sync();
+    persistSettings();
+  },
   onPosition: savePosition,
   onExit: () => {
     showScreen('input');
@@ -59,8 +67,8 @@ const reader = setupReader({
 const input = setupInputScreen({
   settings,
   isActive: () => !inputScreen.hidden,
-  onTextChange: (text, isMarkdown, name) => {
-    if (text.length <= MAX_SAVED_TEXT) save('text', { text, isMarkdown, name } satisfies SavedText);
+  onTextChange: (text, isMarkdown, name, source) => {
+    if (text.length <= MAX_SAVED_TEXT) save('text', { text, isMarkdown, name, source } satisfies SavedText);
     else remove('text');
   },
   onStart: (doc) => openReader(doc),
@@ -83,6 +91,7 @@ const calibration = setupCalibration({
     reader.reschedule();
   },
   onExit: () => {
+    wakeLock.want('calibrate', false);
     showScreen(returnTo);
     showLastCalibration();
     input.refreshStats();
@@ -95,6 +104,8 @@ function openCalibration() {
   if (returnTo === 'reader') reader.close();
   if (drawer.isOpen()) drawer.close();
   showScreen('calibrate');
+  // The test includes timed normal reading, so keep the screen on throughout.
+  wakeLock.want('calibrate', true);
   calibration.open();
 }
 document.getElementById('calibrate-btn')!.addEventListener('click', openCalibration);
@@ -125,7 +136,7 @@ addEventListener('pagehide', () => {
 
 const saved = load<SavedText>('text');
 if (saved && typeof saved.text === 'string') {
-  input.setText(saved.text, !!saved.isMarkdown, saved.name ?? null);
+  input.setText(saved.text, !!saved.isMarkdown, saved.name ?? null, saved.source ?? null);
   if (load<Screen>('screen') === 'reader' && saved.text.trim()) {
     input.start();
   } else {

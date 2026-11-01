@@ -1,7 +1,7 @@
 // Minimal offline cache for OAAT. Same-origin GET requests are served
 // stale-while-revalidate; navigations go to the network first so new
 // deployments show up, falling back to the cached page offline.
-const CACHE = 'oaat-v1';
+const CACHE = 'oaat-v2';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './favicon.svg'])));

@@ -6,6 +6,12 @@
     <meta name="description" content="OAAT — read one word at a time, at a pace that adapts to each word." />
     <meta name="theme-color" content="#fbfaf7" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="OAAT" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>OAAT — One At A Time</title>
   </head>
   <body>
@@ -17,6 +23,8 @@
       <symbol id="i-restart" viewBox="0 0 24 24"><path d="M12 5a7 7 0 1 1-6.6 4.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /><path d="M4 4.5v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></symbol>
       <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8" /><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></symbol>
       <symbol id="i-back" viewBox="0 0 24 24"><path d="M14.5 6 8.5 12l6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></symbol>
+      <symbol id="i-minus" viewBox="0 0 24 24"><path d="M6 12h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M6 12h12M12 6v12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /></symbol>
       <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></symbol>
     </svg>
 
@@ -29,6 +37,23 @@
         </button>
       </header>
       <main class="input-main">
+        <form id="wiki-form" class="wiki-form" novalidate>
+          <label for="wiki-input" class="wiki-label">Wikipedia</label>
+          <input
+            type="text"
+            id="wiki-input"
+            class="wiki-input"
+            inputmode="url"
+            enterkeyhint="go"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+            placeholder="Link or title, e.g. Alan_Turing"
+            aria-describedby="input-message"
+          />
+          <button type="submit" id="wiki-btn" class="btn">Load</button>
+        </form>
         <label for="text-input" class="visually-hidden">Text to read</label>
         <textarea id="text-input" placeholder="Paste text here…" spellcheck="false" autocomplete="off"></textarea>
         <div class="input-bar">
@@ -45,7 +70,7 @@
           </div>
         </div>
         <p id="input-message" class="message" role="status" aria-live="polite"></p>
-        <p class="hint">Drop a <code>.txt</code> or <code>.md</code> file anywhere on the page.<span id="cal-last"></span></p>
+        <p class="hint"><span class="pointer-only">Drop a <code>.txt</code> or <code>.md</code> file anywhere on the page.</span><span id="cal-last"></span></p>
       </main>
     </section>
 
@@ -67,7 +92,11 @@
           <div id="word" class="word" aria-hidden="true"><span class="before"></span><span class="pivot"></span><span class="after"></span></div>
         </div>
         <div id="context" class="context" aria-label="Context" hidden></div>
-        <p id="finished" class="finished" hidden>The end. Press <kbd>R</kbd> to read again or <kbd>Esc</kbd> for new text.</p>
+        <p id="finished" class="finished" hidden>
+          The end.
+          <span class="pointer-only">Press <kbd>R</kbd> to read again or <kbd>Esc</kbd> for new text.</span>
+          <span class="touch-only">Tap <svg class="inline-icon" aria-hidden="true"><use href="#i-restart" /></svg> to read again.</span>
+        </p>
       </div>
       <p id="reader-status" class="visually-hidden" role="status" aria-live="polite"></p>
 
@@ -80,16 +109,25 @@
             <svg class="when-pause" aria-hidden="true"><use href="#i-pause" /></svg>
           </button>
           <button type="button" id="next-sentence-btn" class="icon-btn" aria-label="Forward one sentence (Shift + Right)"><svg aria-hidden="true"><use href="#i-next" /></svg></button>
+          <button type="button" id="tune-btn" class="btn btn-quiet tune-btn" aria-controls="sliders" aria-expanded="false">
+            <span id="tune-wpm">300</span> WPM
+          </button>
         </div>
-        <div class="sliders">
-          <label class="slider-group">
-            <span class="slider-label">Speed <output id="wpm-value"></output></span>
-            <input type="range" id="wpm" min="100" max="1000" step="25" value="300" />
-          </label>
-          <label class="slider-group">
-            <span class="slider-label">Difficulty sensitivity <output id="sensitivity-value"></output></span>
-            <input type="range" id="sensitivity" min="0" max="200" step="5" value="60" />
-          </label>
+        <div id="sliders" class="sliders">
+          <div class="slider-group">
+            <label class="slider-label" for="wpm">Speed <output id="wpm-value" for="wpm"></output></label>
+            <div class="slider-line">
+              <button type="button" id="wpm-down" class="icon-btn step-btn" aria-label="Slower (Down arrow)"><svg aria-hidden="true"><use href="#i-minus" /></svg></button>
+              <input type="range" id="wpm" min="100" max="1000" step="25" value="300" />
+              <button type="button" id="wpm-up" class="icon-btn step-btn" aria-label="Faster (Up arrow)"><svg aria-hidden="true"><use href="#i-plus" /></svg></button>
+            </div>
+          </div>
+          <div class="slider-group">
+            <label class="slider-label" for="sensitivity">Difficulty sensitivity <output id="sensitivity-value" for="sensitivity"></output></label>
+            <div class="slider-line">
+              <input type="range" id="sensitivity" min="0" max="200" step="5" value="60" />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -140,7 +178,11 @@
       </fieldset>
       <label class="field">
         <span class="field-label">Word size <output id="font-size-value"></output></span>
-        <input type="range" id="font-size" min="2" max="6" step="0.25" />
+        <input type="range" id="font-size" min="2.5" max="12" step="0.5" />
+      </label>
+      <label class="field check">
+        <input type="checkbox" id="keep-awake" />
+        <span>Keep screen awake while reading<small id="keep-awake-note"></small></span>
       </label>
       <label class="field check">
         <input type="checkbox" id="show-difficulty" />
@@ -149,18 +191,31 @@
       <div class="field">
         <button type="button" id="drawer-calibrate-btn" class="btn">Find my speed (5-minute test)</button>
       </div>
-      <div class="field keys">
+      <div class="field touch-help touch-only">
+        <h3>Touch</h3>
+        <dl>
+          <dt>Tap</dt><dd>Play / pause</dd>
+          <dt>Tap left / right edge</dt><dd>Back / forward one word (while paused)</dd>
+          <dt>Swipe left / right</dt><dd>Forward / back one sentence</dd>
+        </dl>
+      </div>
+      <div class="field keys pointer-only">
         <h3>Keyboard</h3>
         <dl>
           <dt><kbd>Space</kbd></dt><dd>Play / pause</dd>
           <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Back / forward one word</dd>
           <dt><kbd>Shift</kbd> + <kbd>←</kbd> <kbd>→</kbd></dt><dd>Back / forward one sentence</dd>
           <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Speed ±25 WPM</dd>
+          <dt><kbd>+</kbd> <kbd>−</kbd></dt><dd>Word size</dd>
           <dt><kbd>R</kbd></dt><dd>Restart</dd>
           <dt><kbd>Esc</kbd></dt><dd>Back to text</dd>
         </dl>
       </div>
-      <p class="credit">Word frequencies from <a href="https://github.com/rspeer/wordfreq" target="_blank" rel="noopener">wordfreq</a> (CC BY-SA 4.0).</p>
+      <p class="credit">
+        Word frequencies from <a href="https://github.com/rspeer/wordfreq" target="_blank" rel="noopener">wordfreq</a> (CC BY-SA 4.0).
+        Wikipedia articles are loaded from <a href="https://en.wikipedia.org" target="_blank" rel="noopener">Wikipedia</a> and shared under
+        <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>.
+      </p>
     </aside>
 
     <div id="drop-overlay" class="drop-overlay" hidden><p>Drop your <code>.txt</code> or <code>.md</code> file</p></div>

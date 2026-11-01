@@ -1,12 +1,13 @@
 # OAAT — One At A Time
 
-A static web app for reading text one word at a time (RSVP). Paste text or drop in a `.txt` / `.md` file and the words play back at your chosen speed. The timing adapts to each word: common words flash by quickly, while rare, long or tricky ones stay on screen longer. Punctuation adds natural pauses.
+A static web app for reading text one word at a time (RSVP). Paste text, drop in a `.txt` / `.md` file, or load a Wikipedia article, and the words play back at your chosen speed. The timing adapts to each word: common words flash by quickly, while rare, long or tricky ones stay on screen longer. Punctuation adds natural pauses.
 
-It has no backend, no accounts and makes no network calls at runtime. After the first visit it also works offline, through a small service worker.
+It has no backend and no accounts. The only network call it ever makes is the optional Wikipedia import, straight from your browser to Wikipedia's public API. After the first visit everything else works offline, through a small service worker. On phones it can be added to the home screen and opened full-screen.
 
 ## Usage
 
 1. Paste text into the box, or drop a `.txt` / `.md` / `.markdown` file anywhere on the page (5 MB max). You can also use **Choose file** or **Paste from clipboard**.
+   Or put a Wikipedia link or title in the **Wikipedia** box: a full link, a mobile link, `/wiki/Alan_Turing`, `Alan_Turing` or `Alan Turing` all work. The article is loaded as plain text with its section headings kept as pauses, and the reference sections at the end (See also, References, External links…) are dropped. Pasting a lone Wikipedia link into the main box loads the article too. English Wikipedia only for now.
 2. Press **Read** (or Ctrl/Cmd + Enter), then **Space** to start.
 3. Pause at any time to see the surrounding sentences. Click any word there to jump to it.
 
@@ -18,10 +19,17 @@ Your settings, your last text (if it's under 1 MB) and your position are kept in
 | ← / → | Back / forward one word |
 | Shift + ← / → | Back / forward one sentence |
 | ↑ / ↓ | Speed ±25 WPM |
+| + / − | Word size |
 | R | Restart |
 | Esc | Back to the text (or close settings) |
 
-The settings drawer (gear icon) holds the theme (system / light / dark), the word size, and **Show difficulty colour**, which tints each word from green (easy) to red (hard).
+On a touch screen: tap to play or pause; while paused, tap the left or right edge to step a word; swipe left or right to jump forward or back a sentence. The **300 WPM** button opens the speed and sensitivity sliders.
+
+The settings drawer (gear icon) holds the theme (system / light / dark), the word size, **Keep screen awake while reading**, and **Show difficulty colour**, which tints each word from green (easy) to red (hard).
+
+### Keeping the screen on
+
+While words are playing (and during the speed test), OAAT asks the browser for a [Screen Wake Lock](https://developer.mozilla.org/en-US/docs/Web/API/Screen_Wake_Lock_API) — the same thing video sites use — so your screen doesn't dim or lock. It's released as soon as you pause. It works in current Chrome, Edge, Safari and Firefox, and only on HTTPS or `localhost`, so a self-hosted copy needs HTTPS. Where it isn't available, playback carries on as normal. You can turn it off in settings.
 
 ## Speed test ("Find my speed")
 
@@ -77,7 +85,8 @@ npm run preview   # serve dist/
 ```
 scripts/build-wordlist.mjs  generates src/data/difficulty.json
 src/engine/                 tokenize, difficulty, timing, orp, player (pure, unit-tested)
-src/input/                  markdown stripping, file reading / drag-drop
+src/input/                  markdown stripping, file reading / drag-drop, Wikipedia import
+src/system/wakelock.ts      keeps the screen awake while playing
 src/ui/                     input screen, reader, settings, storage
 tests/                      Vitest unit tests
 ```
@@ -96,6 +105,8 @@ The script keeps the 60,000 most frequent alphabetic words (apostrophes allowed)
 At runtime, a word missing from the list is tried with simple stems (-s, -es, -ed, -ing, -ly, -'s), using the stem's bucket +1. A word that still isn't found gets bucket 7 (8 if it's 10 or more characters). The list loads as a separate chunk; until it arrives, a length-only estimate is used, so the app never blocks.
 
 **Data source and licence.** Word frequencies come from [wordfreq](https://github.com/rspeer/wordfreq) by Robyn Speer, which is licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). `src/data/difficulty.json` is derived from that data and is therefore also distributed under CC BY-SA 4.0. wordfreq includes data from Google Books Ngrams, Wikipedia, OpenSubtitles, SUBTLEX, Reddit, Twitter and other sources; see its README for full credits.
+
+Articles loaded through the Wikipedia import come from [English Wikipedia](https://en.wikipedia.org) and are available under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). OAAT links back to the article on the text screen and in the reader's title bar.
 
 ## Deploying
 

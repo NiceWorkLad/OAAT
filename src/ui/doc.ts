@@ -6,13 +6,20 @@ export type Doc = {
   text: string;
   isMarkdown: boolean;
   name: string | null;
+  /** Where the text came from (a Wikipedia article URL), for attribution. */
+  source: string | null;
   tokens: Token[];
   hash: string;
 };
 
-export function makeDoc(text: string, isMarkdown: boolean, name: string | null = null): Doc {
+export function makeDoc(
+  text: string,
+  isMarkdown: boolean,
+  name: string | null = null,
+  source: string | null = null,
+): Doc {
   const blocks = isMarkdown ? stripMarkdown(text) : textToBlocks(text);
-  return { text, isMarkdown, name, tokens: tokenizeBlocks(blocks), hash: hashText(text) };
+  return { text, isMarkdown, name, source, tokens: tokenizeBlocks(blocks), hash: hashText(text) };
 }
 
 export function formatDuration(ms: number): string {

@@ -3,13 +3,20 @@ import { computeSchedule } from '../engine/timing';
 import type { Token } from '../engine/tokenize';
 import { formatDuration, type Doc } from './doc';
 import { createWordView } from './word-view';
-import { WPM_MAX, WPM_MIN, WPM_STEP, type Settings } from './settings';
+import { nudgeFontSize, WPM_MAX, WPM_MIN, WPM_STEP, type Settings } from './settings';
+import { wakeLock } from '../system/wakelock';
 
 const HIDE_CONTROLS_AFTER = 2000;
+/** Horizontal travel (px) that counts as a swipe rather than a tap. */
+const SWIPE_MIN = 50;
+/** Fraction of the stage width on each side that steps a word when tapped. */
+const EDGE_ZONE = 0.3;
 
 type Options = {
   settings: Settings;
   onSettingsChange: () => void;
+  /** Word size changed from the keyboard. */
+  onAppearanceChange: () => void;
   onPosition: (tokenIndex: number) => void;
   onExit: () => void;
   settingsOpen: () => boolean;
@@ -34,6 +41,9 @@ export function setupReader(opts: Options) {
   const timeLeft = $('time-left');
   const status = $('reader-status');
   const docTitle = $('doc-title');
+  const controls = screen.querySelector<HTMLElement>('.controls')!;
+  const tuneBtn = $<HTMLButtonElement>('tune-btn');
+  const tuneWpm = $('tune-wpm');
 
   const player = new Player();
   let doc: Doc | null = null;
@@ -124,6 +134,8 @@ export function setupReader(opts: Options) {
     if (playing) scheduleHide();
     else showControls();
     if (state !== 'playing') opts.onPosition(player.tokenIndex);
+    // Keep the screen on while words are moving, like a video player does.
+    wakeLock.want('reader', playing);
     const n = doc?.tokens.length ?? 0;
     status.textContent =
       state === 'playing'
@@ -149,6 +161,7 @@ export function setupReader(opts: Options) {
     hideTimer = window.setTimeout(() => {
       if (player.state === 'playing' && !screen.contains(document.activeElement?.closest('.slider-group') ?? null)) {
         screen.classList.add('controls-hidden');
+        setTuning(false);
       }
     }, HIDE_CONTROLS_AFTER);
   }
@@ -164,6 +177,7 @@ export function setupReader(opts: Options) {
   const syncSliders = () => {
     wpmInput.value = String(settings.wpm);
     wpmOut.textContent = `${settings.wpm} WPM`;
+    tuneWpm.textContent = String(settings.wpm);
     sensInput.value = String(Math.round(settings.sensitivity * 100));
     const pct = Math.round(settings.sensitivity * 100);
     sensOut.textContent = pct === 0 ? 'Off' : `${pct}%`;
@@ -196,6 +210,16 @@ export function setupReader(opts: Options) {
     settings.wpm = Math.min(WPM_MAX, Math.max(WPM_MIN, settings.wpm + delta));
     settingsChanged();
   };
+
+  $('wpm-down').addEventListener('click', () => nudgeWpm(-WPM_STEP));
+  $('wpm-up').addEventListener('click', () => nudgeWpm(WPM_STEP));
+
+  // On phones the sliders live in a panel behind the "300 WPM" button.
+  function setTuning(open: boolean) {
+    controls.classList.toggle('tuning', open);
+    tuneBtn.setAttribute('aria-expanded', String(open));
+  }
+  tuneBtn.addEventListener('click', () => setTuning(!controls.classList.contains('tuning')));
 
   playBtn.addEventListener('click', () => player.toggle());
   $('restart-btn').addEventListener('click', () => player.restart());
@@ -233,8 +257,53 @@ export function setupReader(opts: Options) {
     e.stopPropagation();
   });
 
-  // Click on the word itself toggles play (handy on touch screens).
+  // --- Stage: click / tap / swipe ----------------------------------------
+  //
+  // Mouse: click anywhere toggles play.
+  // Touch/pen: tap toggles; while paused, tapping the left/right edge steps a
+  // word; a horizontal swipe jumps a sentence (left = forward, like a page).
+
+  let gesture: { id: number; x: number; y: number; t: number; type: string } | null = null;
+  let suppressClick = false;
+
+  stage.addEventListener('pointerdown', (e) => {
+    suppressClick = false;
+    if (e.composedPath().includes(contextEl) || !e.isPrimary) return;
+    gesture = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), type: e.pointerType };
+  });
+  stage.addEventListener('pointercancel', () => (gesture = null));
+  stage.addEventListener('pointerup', (e) => {
+    const g = gesture;
+    gesture = null;
+    if (!g || g.id !== e.pointerId) return;
+    const dx = e.clientX - g.x;
+    const dy = e.clientY - g.y;
+    if (Math.abs(dx) >= SWIPE_MIN && Math.abs(dx) > Math.abs(dy) * 1.5 && performance.now() - g.t < 800) {
+      player.jumpSentence(dx < 0 ? 1 : -1);
+      suppressClick = true;
+      activity();
+      return;
+    }
+    if (g.type === 'mouse') return; // handled by click
+    if (Math.hypot(dx, dy) > 12) return; // a scroll or drag, not a tap
+    suppressClick = true;
+    activity();
+    if (controls.classList.contains('tuning')) {
+      setTuning(false);
+      return;
+    }
+    const rect = stage.getBoundingClientRect();
+    const at = (e.clientX - rect.left) / rect.width;
+    if (player.state !== 'playing' && player.state !== 'finished' && at < EDGE_ZONE) player.stepWord(-1);
+    else if (player.state !== 'playing' && player.state !== 'finished' && at > 1 - EDGE_ZONE) player.stepWord(1);
+    else player.toggle();
+  });
+
   stage.addEventListener('click', (e) => {
+    if (suppressClick) {
+      suppressClick = false;
+      return;
+    }
     if (e.composedPath().includes(contextEl)) return;
     if (window.getSelection()?.toString()) return;
     player.toggle();
@@ -267,6 +336,16 @@ export function setupReader(opts: Options) {
       case 'ArrowDown':
         nudgeWpm(-WPM_STEP);
         break;
+      case '+':
+      case '=':
+        nudgeFontSize(settings, 1);
+        opts.onAppearanceChange();
+        break;
+      case '-':
+      case '_':
+        nudgeFontSize(settings, -1);
+        opts.onAppearanceChange();
+        break;
       case 'r':
       case 'R':
         player.restart();
@@ -289,6 +368,7 @@ export function setupReader(opts: Options) {
 
   function exit() {
     player.pause();
+    setTuning(false);
     opts.onPosition(player.tokenIndex);
     opts.onExit();
   }
@@ -296,7 +376,16 @@ export function setupReader(opts: Options) {
   return {
     open(d: Doc, tokenIndex = 0) {
       doc = d;
-      docTitle.textContent = d.name ?? '';
+      docTitle.replaceChildren();
+      if (d.source) {
+        const link = document.createElement('a');
+        link.href = d.source;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = d.name ?? d.source;
+        link.title = 'Open on Wikipedia (CC BY-SA 4.0)';
+        docTitle.append(link);
+      } else docTitle.textContent = d.name ?? '';
       syncSliders();
       player.load(d.tokens, computeSchedule(d.tokens, settings), Math.min(tokenIndex, d.tokens.length - 1));
       screen.dataset.state = 'idle';
@@ -308,6 +397,7 @@ export function setupReader(opts: Options) {
     },
     close() {
       player.pause();
+      setTuning(false);
       showControls();
     },
     reschedule,

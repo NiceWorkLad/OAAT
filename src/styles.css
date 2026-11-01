@@ -13,7 +13,7 @@
   --focus: #2459c7;
   --tick: #c9c5ba;
   --diff-l: 34%;
-  --word-size: 3.5rem;
+  --word-size: 5rem;
   --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, Consolas, 'DejaVu Sans Mono',
     'Liberation Mono', monospace;
   --sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -80,6 +80,15 @@ input,
 textarea {
   font: inherit;
   color: inherit;
+}
+/* No double-tap-zoom delay on anything tappable. */
+button,
+a,
+input,
+label,
+summary,
+.progress {
+  touch-action: manipulation;
 }
 :focus-visible {
   outline: 2px solid var(--focus);
@@ -214,6 +223,47 @@ a {
   min-height: 0;
   margin: 0 auto;
   padding: 0 1rem max(1rem, env(safe-area-inset-bottom));
+  overflow-y: auto;
+}
+.wiki-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.35rem 0.35rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 4px);
+  background: var(--surface);
+}
+.wiki-form:focus-within {
+  border-color: var(--muted);
+}
+.wiki-form[aria-busy='true'] .btn {
+  opacity: 0.6;
+  cursor: progress;
+}
+.wiki-label {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.wiki-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.5rem;
+  padding: 0 0.25rem;
+  border: 0;
+  background: transparent;
+  font-size: max(16px, 1rem); /* 16px+ stops iOS zooming on focus */
+}
+.wiki-input:focus {
+  outline: none;
+}
+.wiki-input::placeholder {
+  color: var(--faint);
+}
+.message a {
+  font-weight: 600;
 }
 #text-input {
   flex: 1;
@@ -224,7 +274,7 @@ a {
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) + 4px);
   background: var(--surface);
-  font: 1.05rem/1.65 var(--sans);
+  font: max(16px, 1.05rem) / 1.65 var(--sans);
 }
 #text-input::placeholder {
   color: var(--faint);
@@ -287,6 +337,11 @@ a {
   position: relative;
   z-index: 2;
 }
+.doc-title a {
+  color: inherit;
+  text-decoration-color: var(--faint);
+  text-underline-offset: 0.2em;
+}
 .doc-title {
   flex: 1;
   overflow: hidden;
@@ -303,14 +358,24 @@ a {
   flex-direction: column;
   min-height: 0;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  /* Let the context panel scroll vertically; horizontal moves are our swipes. */
+  touch-action: pan-y;
   cursor: pointer;
 }
 .word-row {
   position: relative;
   flex: 0 0 auto;
-  height: calc(var(--word-size) * 2.6);
-  margin-top: max(1rem, 20vh);
-  --size: min(var(--word-size), 6.6vw + 0.6rem);
+  /*
+   * The chosen size, capped so that ordinary words (up to ~11 letters) fit the
+   * width and the word never takes more than about a quarter of the height.
+   * Rarer, longer frames are shrunk individually by word-view.ts.
+   */
+  --size: min(var(--word-size), 13vw, 24dvh);
+  height: calc(var(--size) * 2.6);
+  margin-top: max(1rem, 18dvh);
 }
 
 /* Pivot sits at a fixed x; everything is positioned from there in ch units. */
@@ -469,6 +534,30 @@ a {
 .field-label output {
   color: var(--text);
   font-variant-numeric: tabular-nums;
+}
+.slider-line {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2.75rem;
+}
+.step-btn {
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+}
+.step-btn svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.tune-btn {
+  display: none;
+  font-variant-numeric: tabular-nums;
+}
+.inline-icon {
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: -0.2em;
 }
 input[type='range'] {
   width: 100%;
@@ -654,29 +743,218 @@ fieldset.field legend {
   font-size: 0.8rem;
 }
 
-/* ---------- Small screens ---------------------------------------------- */
+/* ---------- Touch vs pointer ------------------------------------------ */
+@media (hover: none) and (pointer: coarse) {
+  .pointer-only,
+  kbd {
+    display: none !important;
+  }
+  /* Hover styles stick after a tap on touch screens; drop them. */
+  .icon-btn:hover {
+    background: transparent;
+    color: var(--muted);
+  }
+  .play-btn:hover {
+    background: var(--accent);
+    color: var(--accent-text);
+    filter: none;
+  }
+  .btn:hover {
+    background: var(--surface);
+  }
+  .btn-quiet:hover {
+    background: transparent;
+  }
+}
+@media not ((hover: none) and (pointer: coarse)) {
+  .touch-only {
+    display: none !important;
+  }
+}
+
+/* ---------- Phones ------------------------------------------------------- */
 @media (max-width: 640px) {
   .logo-sub {
     display: none;
   }
-  .controls {
-    gap: 0.5rem 1rem;
-  }
-  .sliders {
-    width: 100%;
-  }
-  .slider-group {
-    flex: 1 1 10rem;
-    min-width: 0;
-  }
-  .word-row {
-    margin-top: max(1rem, 12vh);
-  }
-  .context {
-    font-size: 0.95rem;
-  }
   .btn-primary kbd {
     display: none;
+  }
+
+  /* Input: Wikipedia, text, tools in a grid, big Read button in thumb reach. */
+  .input-main {
+    gap: 0.6rem;
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+  }
+  .wiki-label {
+    font-size: 0.85rem;
+  }
+  #text-input {
+    min-height: 8rem;
+    padding: 0.9rem 1rem;
+  }
+  #text-input::placeholder {
+    font-size: 1.2rem;
+  }
+  .input-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+  }
+  .input-tools {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .input-tools .btn {
+    justify-content: center;
+    min-height: 2.75rem;
+  }
+  .input-go {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem;
+    margin-left: 0;
+  }
+  .input-go .stats {
+    text-align: center;
+  }
+  #start-btn {
+    justify-content: center;
+    min-height: 3.25rem;
+    font-size: 1.1rem;
+  }
+  .message,
+  .hint {
+    text-align: center;
+  }
+
+  /* Reader: word a little above centre; transport bar at the bottom. */
+  .word-row {
+    margin-top: max(0.5rem, 14dvh);
+  }
+  .context {
+    width: calc(100% - 1.5rem);
+    font-size: 1rem;
+  }
+  .ctx-word {
+    padding: 0.1em 0;
+  }
+  .progress {
+    height: 24px;
+  }
+  .progress::before,
+  .progress-fill {
+    height: 6px;
+  }
+
+  /* Settings: a bottom sheet instead of a side drawer. */
+  .drawer {
+    top: auto;
+    left: 0;
+    width: 100%;
+    max-height: 85dvh;
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    border-radius: 1.1rem 1.1rem 0 0;
+    box-shadow: 0 -8px 32px rgb(0 0 0 / 0.18);
+    animation-name: sheet-in;
+  }
+  .segmented span {
+    padding: 0.65rem 0;
+  }
+}
+/* Compact transport bar with a speed panel: phones, and any short landscape screen. */
+@media (max-width: 640px), (max-height: 500px) and (orientation: landscape) {
+  .controls {
+    position: relative;
+    gap: 0;
+    padding: 0.5rem max(0.5rem, env(safe-area-inset-right)) 0.25rem max(0.5rem, env(safe-area-inset-left));
+  }
+  .transport {
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.25rem;
+  }
+  .transport .icon-btn {
+    width: 3rem;
+    height: 3rem;
+  }
+  .transport .play-btn {
+    width: 4rem;
+    height: 4rem;
+  }
+  .tune-btn {
+    display: inline-flex;
+    min-height: 3rem;
+    padding: 0 0.6rem;
+    color: var(--text);
+    font-weight: 600;
+  }
+  /* Sliders open as a panel above the bar. */
+  .sliders {
+    display: none;
+    position: absolute;
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: calc(100% + 0.25rem);
+    z-index: 3;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) + 6px);
+    background: var(--surface);
+    box-shadow: 0 -6px 28px rgb(0 0 0 / 0.14);
+  }
+  .controls.tuning .sliders {
+    display: flex;
+    animation: sheet-in 160ms ease-out;
+  }
+  .slider-group {
+    min-width: 0;
+  }
+  .slider-label {
+    font-size: 0.9rem;
+  }
+  .step-btn {
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid var(--border);
+  }
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(1.25rem);
+    opacity: 0;
+  }
+}
+
+/* Phone on its side: give the word the room. */
+@media (max-height: 500px) and (orientation: landscape) {
+  #text-input {
+    flex: 1 0 6rem;
+    min-height: 6rem;
+  }
+  .word-row {
+    --size: min(var(--word-size), 13vw, 20dvh);
+    margin-top: max(0.25rem, 4dvh);
+  }
+  .reader-screen .topbar {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+  }
+  .controls {
+    padding-top: 0.25rem;
+  }
+  .transport {
+    max-width: 34rem;
+    margin: 0 auto;
+  }
+  .sliders {
+    left: max(0.5rem, calc(50% - 17rem));
+    right: max(0.5rem, calc(50% - 17rem));
   }
 }
 
@@ -684,7 +962,8 @@ fieldset.field legend {
   :root {
     --fade: 0ms;
   }
-  .drawer {
+  .drawer,
+  .controls.tuning .sliders {
     animation: none;
   }
 }
