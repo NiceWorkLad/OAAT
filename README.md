@@ -30,7 +30,7 @@ duration = base × difficultyFactor × lengthFactor × kindFactor + pauseExtra
 base     = 60000 / wpm
 ```
 
-- **Difficulty**: each word is looked up in a frequency list and given a bucket from 0 (easiest) to 9 (hardest). The factor is `1 + sensitivity × (weight[bucket] − 1)`, with weights running from 0.75 to 1.6.
+- **Difficulty**: each word is looked up in a frequency list and given a bucket from 0 (easiest) to 9 (hardest). The factor is `1 + sensitivity × (weight[bucket] − 1)`, with weights running from 0.75 to 1.6. Sensitivity runs from 0 to 200% (default 60%). Above 100% the spread is exaggerated: at 200%, the hardest bucket gets 2.2× the base time and the easiest 0.5×, compared with 1.6× and 0.75× at 100%. Because of the honest-WPM rescale, giving hard words more time takes it from easy words, so the average speed stays the same.
 - **Length**: `+4%` per letter beyond 6, capped at `×1.4`. **Kind**: numbers `×1.3`, names `×1.15`, URLs/symbols `×1.5`.
 - **Pauses** (multiples of `base`, added on top): comma/semicolon/colon/dash `+0.5`, sentence end `+1.2`, paragraph `+2.0`, heading `+2.5`.
 - **Long words** (14+ characters) show as two frames. The split falls at a hyphen if there is one, otherwise mid-word with a trailing `-`.

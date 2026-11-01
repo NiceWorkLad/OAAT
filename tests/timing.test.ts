@@ -81,3 +81,28 @@ describe('timing', () => {
     expect(computeSchedule([], { wpm: 300, sensitivity: 0.6 })).toEqual([]);
   });
 });
+
+describe('timing above 100% sensitivity', () => {
+  beforeAll(() => setDifficultyData(real));
+  afterAll(() => setDifficultyData(null));
+
+  it('widens the gap between easy and hard words, keeping WPM honest', () => {
+    const tokens = tokenize(SAMPLE);
+    const ratio = (sensitivity: number) => {
+      const frames = computeSchedule(tokens, { wpm: 300, sensitivity });
+      const the = frames.find((f) => tokens[f.tokenIndex].core === 'the')!;
+      const ser = frames.find((f) => tokens[f.tokenIndex].core === 'serendipity')!;
+      return ser.wordMs / the.wordMs;
+    };
+    expect(ratio(2)).toBeGreaterThan(ratio(1) * 1.3);
+    const frames = computeSchedule(tokens, { wpm: 300, sensitivity: 2 });
+    expect(Math.abs(mean(wordTimes(frames)) - 200) / 200).toBeLessThan(0.01);
+  });
+
+  it('caps sensitivity at the maximum', () => {
+    const tokens = tokenize(SAMPLE);
+    const a = computeSchedule(tokens, { wpm: 300, sensitivity: 2 });
+    const b = computeSchedule(tokens, { wpm: 300, sensitivity: 5 });
+    expect(b.map((f) => f.duration)).toEqual(a.map((f) => f.duration));
+  });
+});

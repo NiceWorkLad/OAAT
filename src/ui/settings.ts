@@ -1,10 +1,11 @@
+import { MAX_SENSITIVITY } from '../engine/timing';
 import { load, save } from './storage';
 
 export type Theme = 'system' | 'light' | 'dark';
 
 export type Settings = {
   wpm: number;
-  sensitivity: number; // 0..1
+  sensitivity: number; // 0..MAX_SENSITIVITY
   theme: Theme;
   fontSize: number; // rem
   showDifficulty: boolean;
@@ -31,7 +32,7 @@ export function loadSettings(): Settings {
   const s = load<Partial<Settings>>('settings') ?? {};
   return {
     wpm: Math.round(clamp(s.wpm, WPM_MIN, WPM_MAX, DEFAULTS.wpm) / WPM_STEP) * WPM_STEP,
-    sensitivity: clamp(s.sensitivity, 0, 1, DEFAULTS.sensitivity),
+    sensitivity: clamp(s.sensitivity, 0, MAX_SENSITIVITY, DEFAULTS.sensitivity),
     theme: s.theme === 'light' || s.theme === 'dark' ? s.theme : 'system',
     fontSize: clamp(s.fontSize, FONT_MIN, FONT_MAX, DEFAULTS.fontSize),
     showDifficulty: typeof s.showDifficulty === 'boolean' ? s.showDifficulty : DEFAULTS.showDifficulty,

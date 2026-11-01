@@ -3,7 +3,7 @@ import type { Kind, Pause, Token } from './tokenize';
 
 export type TimingSettings = {
   wpm: number;
-  sensitivity: number; // 0..1
+  sensitivity: number; // 0..MAX_SENSITIVITY
 };
 
 export type Frame = {
@@ -17,6 +17,8 @@ export type Frame = {
 };
 
 export const DEFAULT_SENSITIVITY = 0.6;
+/** Above 1, difficulty weights are exaggerated beyond the base table. */
+export const MAX_SENSITIVITY = 2;
 export const BUCKET_WEIGHT = [0.75, 0.8, 0.85, 0.95, 1.0, 1.1, 1.2, 1.3, 1.45, 1.6];
 export const KIND_FACTOR: Record<Kind, number> = { word: 1, number: 1.3, name: 1.15, symbol: 1.5 };
 export const PAUSE_EXTRA: Record<Pause, number> = {
@@ -83,7 +85,7 @@ type Raw = { frames: Omit<Frame, 'wordMs' | 'duration'>[]; rawWord: number; shar
  */
 export function computeSchedule(tokens: Token[], settings: TimingSettings): Frame[] {
   const base = baseMs(settings.wpm);
-  const s = clamp(settings.sensitivity, 0, 1);
+  const s = clamp(settings.sensitivity, 0, MAX_SENSITIVITY);
   const f = fade(s);
   const splitShare = 0.5 + (SPLIT_SHARE - 0.5) * f;
 
