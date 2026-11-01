@@ -1,0 +1,21 @@
+{
+  "name": "oaat",
+  "private": true,
+  "version": "0.1.0",
+  "description": "One At A Time — adaptive RSVP reader",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "wordlist": "node scripts/build-wordlist.mjs"
+  },
+  "devDependencies": {
+    "@msgpack/msgpack": "^3.1.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  }
+}

@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content="OAAT — read one word at a time, at a pace that adapts to each word." />
+    <meta name="theme-color" content="#fbfaf7" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <title>OAAT — One At A Time</title>
+  </head>
+  <body>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor" /></symbol>
+      <symbol id="i-pause" viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor" /></symbol>
+      <symbol id="i-prev" viewBox="0 0 24 24"><path d="M6 5h2v14H6zM19 5.5v13L9.5 12z" fill="currentColor" /></symbol>
+      <symbol id="i-next" viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM5 5.5v13L14.5 12z" fill="currentColor" /></symbol>
+      <symbol id="i-restart" viewBox="0 0 24 24"><path d="M12 5a7 7 0 1 1-6.6 4.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /><path d="M4 4.5v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></symbol>
+      <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8" /><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></symbol>
+      <symbol id="i-back" viewBox="0 0 24 24"><path d="M14.5 6 8.5 12l6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></symbol>
+    </svg>
+
+    <!-- Input -->
+    <section id="input-screen" class="screen input-screen" aria-labelledby="app-title" hidden>
+      <header class="topbar">
+        <h1 id="app-title" class="logo">OAAT <span class="logo-sub">one at a time</span></h1>
+        <button type="button" class="icon-btn" data-settings-open aria-label="Settings" aria-controls="settings" aria-expanded="false">
+          <svg aria-hidden="true"><use href="#i-gear" /></svg>
+        </button>
+      </header>
+      <main class="input-main">
+        <label for="text-input" class="visually-hidden">Text to read</label>
+        <textarea id="text-input" placeholder="Paste text here…" spellcheck="false" autocomplete="off"></textarea>
+        <div class="input-bar">
+          <div class="input-tools">
+            <button type="button" id="choose-file" class="btn">Choose file</button>
+            <input type="file" id="file-input" accept=".txt,.md,.markdown,text/plain,text/markdown" hidden />
+            <button type="button" id="paste-btn" class="btn">Paste from clipboard</button>
+            <button type="button" id="clear-btn" class="btn btn-quiet">Clear</button>
+          </div>
+          <div class="input-go">
+            <p id="input-stats" class="stats" aria-live="polite"></p>
+            <button type="button" id="start-btn" class="btn btn-primary" disabled>Read <kbd>Ctrl ↵</kbd></button>
+          </div>
+        </div>
+        <p id="input-message" class="message" role="status" aria-live="polite"></p>
+        <p class="hint">Drop a <code>.txt</code> or <code>.md</code> file anywhere on the page.</p>
+      </main>
+    </section>
+
+    <!-- Reader -->
+    <section id="reader-screen" class="screen reader-screen" aria-label="Reader" data-state="idle" hidden>
+      <header class="topbar fade">
+        <button type="button" id="back-btn" class="btn btn-quiet" aria-label="Back to text (Esc)">
+          <svg aria-hidden="true"><use href="#i-back" /></svg> Text
+        </button>
+        <span id="doc-title" class="doc-title"></span>
+        <button type="button" class="icon-btn" data-settings-open aria-label="Settings" aria-controls="settings" aria-expanded="false">
+          <svg aria-hidden="true"><use href="#i-gear" /></svg>
+        </button>
+      </header>
+
+      <div id="stage" class="stage">
+        <div class="word-row">
+          <div class="reticle" aria-hidden="true"></div>
+          <div id="word" class="word" aria-hidden="true"><span class="before"></span><span class="pivot"></span><span class="after"></span></div>
+        </div>
+        <div id="context" class="context" aria-label="Context" hidden></div>
+        <p id="finished" class="finished" hidden>The end. Press <kbd>R</kbd> to read again or <kbd>Esc</kbd> for new text.</p>
+      </div>
+      <p id="reader-status" class="visually-hidden" role="status" aria-live="polite"></p>
+
+      <div class="controls fade" role="toolbar" aria-label="Playback controls">
+        <div class="transport">
+          <button type="button" id="restart-btn" class="icon-btn" aria-label="Restart (R)"><svg aria-hidden="true"><use href="#i-restart" /></svg></button>
+          <button type="button" id="prev-sentence-btn" class="icon-btn" aria-label="Back one sentence (Shift + Left)"><svg aria-hidden="true"><use href="#i-prev" /></svg></button>
+          <button type="button" id="play-btn" class="icon-btn play-btn" data-icon="play" aria-label="Play (Space)" aria-pressed="false">
+            <svg class="when-play" aria-hidden="true"><use href="#i-play" /></svg>
+            <svg class="when-pause" aria-hidden="true"><use href="#i-pause" /></svg>
+          </button>
+          <button type="button" id="next-sentence-btn" class="icon-btn" aria-label="Forward one sentence (Shift + Right)"><svg aria-hidden="true"><use href="#i-next" /></svg></button>
+        </div>
+        <div class="sliders">
+          <label class="slider-group">
+            <span class="slider-label">Speed <output id="wpm-value"></output></span>
+            <input type="range" id="wpm" min="100" max="1000" step="25" value="300" />
+          </label>
+          <label class="slider-group">
+            <span class="slider-label">Difficulty sensitivity <output id="sensitivity-value"></output></span>
+            <input type="range" id="sensitivity" min="0" max="100" step="5" value="60" />
+          </label>
+        </div>
+      </div>
+
+      <div class="progress-row">
+        <span id="time-left" class="time-left fade"></span>
+        <div id="progress" class="progress" role="slider" tabindex="0" aria-label="Reading position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div id="progress-fill" class="progress-fill"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <div id="settings-backdrop" class="backdrop" hidden></div>
+    <aside id="settings" class="drawer" role="dialog" aria-modal="false" aria-labelledby="settings-title" hidden>
+      <div class="drawer-head">
+        <h2 id="settings-title">Settings</h2>
+        <button type="button" id="settings-close" class="icon-btn" aria-label="Close settings"><svg aria-hidden="true"><use href="#i-close" /></svg></button>
+      </div>
+      <fieldset class="field">
+        <legend>Theme</legend>
+        <div class="segmented">
+          <label><input type="radio" name="theme" value="system" /> <span>System</span></label>
+          <label><input type="radio" name="theme" value="light" /> <span>Light</span></label>
+          <label><input type="radio" name="theme" value="dark" /> <span>Dark</span></label>
+        </div>
+      </fieldset>
+      <label class="field">
+        <span class="field-label">Word size <output id="font-size-value"></output></span>
+        <input type="range" id="font-size" min="2" max="6" step="0.25" />
+      </label>
+      <label class="field check">
+        <input type="checkbox" id="show-difficulty" />
+        <span>Show difficulty colour<small>Tints each word by how hard it is (green easy → red hard).</small></span>
+      </label>
+      <div class="field keys">
+        <h3>Keyboard</h3>
+        <dl>
+          <dt><kbd>Space</kbd></dt><dd>Play / pause</dd>
+          <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Back / forward one word</dd>
+          <dt><kbd>Shift</kbd> + <kbd>←</kbd> <kbd>→</kbd></dt><dd>Back / forward one sentence</dd>
+          <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Speed ±25 WPM</dd>
+          <dt><kbd>R</kbd></dt><dd>Restart</dd>
+          <dt><kbd>Esc</kbd></dt><dd>Back to text</dd>
+        </dl>
+      </div>
+      <p class="credit">Word frequencies from <a href="https://github.com/rspeer/wordfreq" target="_blank" rel="noopener">wordfreq</a> (CC BY-SA 4.0).</p>
+    </aside>
+
+    <div id="drop-overlay" class="drop-overlay" hidden><p>Drop your <code>.txt</code> or <code>.md</code> file</p></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
